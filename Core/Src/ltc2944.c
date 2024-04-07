@@ -57,7 +57,7 @@ HAL_StatusTypeDef LTC2944_Init(ltc2944_configuration_t ltc2944){
 
 
 uint8_t LTC2944_Get_Battery_Data(ltc2944_configuration_t *ltc2944){
-	uint16_t temp;
+	float temp;
 	uint8_t status;
 	uint8_t data_buffer[NUMBER_OF_REGISTERS];
 
@@ -67,20 +67,20 @@ uint8_t LTC2944_Get_Battery_Data(ltc2944_configuration_t *ltc2944){
 	if(status == HAL_OK){
 
 		temp = (data_buffer[ACCUMULATED_CHARGE_MSB]) << 8 | (data_buffer[ACCUMULATED_CHARGE_LSB]);
-		ltc2944_data.acc_charge = ltc2944_data.qLSB * (float)temp * 1000;
+		ltc2944_data.acc_charge = ltc2944_data.qLSB * temp;
 
 		temp = (data_buffer[VOLTAGE_MSB] << 8) | (data_buffer[VOLTAGE_LSB]);
-		ltc2944_data.voltage = 70.8 * ((float)temp/65535.0);
+		ltc2944_data.voltage = 70.8 * (temp/65535.0);
 
 		temp = (data_buffer[CURRENT_MSB] << 8) | (data_buffer)[CURRENT_LSB];
-		ltc2944_data.current = (0.064 / ltc2944->sense_resistor) * (((float)temp - 32767.0) / 32767.0);
+		ltc2944_data.current = (64 / ltc2944->sense_resistor) * ((temp - 32767.0) / 32767.0);
 
 		temp = (data_buffer[TEMPERATURE_MSB] << 8) | (data_buffer[TEMPERATURE_LSB]);
-		ltc2944_data.temperature = (501 * ((float)temp / 65535)) - 273;
+		ltc2944_data.temperature = (501 * (temp / 65535)) - 273;
 
-//		memcpy();
 
-	}else{
+	}
+	else{
 		ltc2944_data.acc_charge =	0;
 		ltc2944_data.current = 		0;
 		ltc2944_data.qLSB = 		0;

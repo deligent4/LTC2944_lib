@@ -9,15 +9,43 @@ void ssd1306_Reset(void) {
     /* for I2C - do nothing */
 }
 
-// Send a byte to the command register
+
+/****** https://github.com/taburyak/STM32_OLED_SSD1306_HAL_DMA/blob/master/Src/ssd1306.c *******/
+/*
+ * DMA settings
+ * ADD I2Cx_TX in normal mode. Byte | Byte
+ * In NVIC Settings, Enable "I2Cx event interrupt"
+ */
 void ssd1306_WriteCommand(uint8_t byte) {
-    HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &byte, 1, HAL_MAX_DELAY);
+#ifdef USE_DMA
+	while(HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY);
+	HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &byte, 1);
+#else
+	HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &byte, 1, HAL_MAX_DELAY);
+#endif
 }
 
-// Send data
+
 void ssd1306_WriteData(uint8_t* buffer, size_t buff_size) {
-    HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, buffer, buff_size, HAL_MAX_DELAY);
+#ifdef USE_DMA
+	while(HAL_I2C_GetState(&SSD1306_I2C_PORT) != HAL_I2C_STATE_READY);
+	HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, buffer, buff_size);
+#else
+	HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, buffer, buff_size, HAL_MAX_DELAY);
+#endif
 }
+
+
+#ifdef USE_DMA
+void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	if(hi2c->Instance == SSD1306_I2C_PORT.Instance)
+	{
+		//TODO:
+	}
+}
+#endif
+
 
 #elif defined(SSD1306_USE_SPI)
 

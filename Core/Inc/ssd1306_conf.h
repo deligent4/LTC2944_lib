@@ -18,6 +18,7 @@
 
 // Choose a bus
 #define SSD1306_USE_I2C
+#define USE_DMA
 //#define SSD1306_USE_SPI
 
 // I2C Configuration
