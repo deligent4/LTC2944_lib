@@ -52,14 +52,14 @@
 
 /* USER CODE BEGIN PV */
 uint32_t tick, prev_tick = 0;
-uint8_t blink_delay = 100;
+uint16_t blink_delay = 500;
 ltc2944_configuration_t ltc2944_struct = {0};
 
-float voltage, current;
+float voltage, current, charge, temperature;
 uint16_t volt;
 
 //ltc2944_data_t ltc2944_data;
-//float Perscaler_Table[] = {1.0, 4.0, 16.0, 64.0, 256.0, 1024.0, 4096.0};
+//float Prescaler_Table[] = {1.0, 4.0, 16.0, 64.0, 256.0, 1024.0, 4096.0};
 
 
 uint8_t buf[2];
@@ -69,13 +69,15 @@ uint16_t qbat = 300, rsns = 5123;
 //uint32_t temp;
 //uint8_t ctrl_reg[2];
 //float prescalar_value;
-//uint8_t status;
+uint8_t status;
 
-char stringValue[10];  // Adjust the buffer size as needed
-char string_voltage[10], string_current[10];
+char stringTick[10];  // Adjust the buffer size as needed
+char stringTest1[12], stringTest2[12];
+char string_voltage[10], string_current[10], string_charge[10], string_temperature[10];
 
 uint16_t battery_detect = 0;
 bool is_ltc2944_config = false;
+float prescaler_value, psc_temp;
 
 /* USER CODE END PV */
 
@@ -147,6 +149,7 @@ int main(void)
   HAL_ADC_Start(&hadc1);
   state_t state = IDLE;
 
+  Device_Config();
 
   /* USER CODE END 2 */
 
@@ -157,75 +160,102 @@ int main(void)
 
 
 	  tick = HAL_GetTick();
-	  printf(string_current);
+//	  printf(string_current);
 
+	  prescaler_value = LTC2944_Init(ltc2944_struct);
+
+	  sprintf(stringTick, "%ld", tick);
+	  ssd1306_SetCursor(0, 0);
+	  ssd1306_WriteString(stringTick, Font_7x10, Black);
+
+	  sprintf(stringTest1, "%f", prescaler_value);
+	  ssd1306_SetCursor(0, 15);
+	  ssd1306_WriteString(stringTest1, Font_7x10, Black);
+
+	  sprintf(stringTest2, "%f", tick*0.302);
+	  ssd1306_SetCursor(0, 30);
+	  ssd1306_WriteString(stringTest2, Font_7x10, Black);
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-	  HAL_ADC_PollForConversion(&hadc1, 10);
-  	  battery_detect = HAL_ADC_GetValue(&hadc1);
+//	  HAL_ADC_PollForConversion(&hadc1, 10);
+//  	  battery_detect = HAL_ADC_GetValue(&hadc1);
+//
+//	  switch(state){
+//	  case IDLE:
+//		  if(battery_detect >= 200){
+//			  state = BATT_CONN;
+//		  }else{
+//			  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, RESET);
+//			  voltage = 0.0;
+//			  current = 0.0;
+//		  }
+//		  break;
+//
+//	  case BATT_CONN:
+//		  Device_Config();
+//		  state = RUN;
+//		  break;
+//
+//	  case RUN:
+//		  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, SET);
+//		  if(battery_detect < 200){
+//			  state = IDLE;
+//		  }
+//		  break;
+//	  default:
+//	  }
+//
+//	  status = HAL_I2C_Mem_Read(&hi2c2, LTC2944_ADDRESS, VOLTAGE_MSB, 1, buf, 2, 1000);
 
-	  switch(state){
-	  case IDLE:
-		  if(battery_detect >= 200){
-			  state = BATT_CONN;
-		  }else{
-			  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, RESET);
-			  voltage = 0.0;
-			  current = 0.0;
-		  }
-		  break;
-
-	  case BATT_CONN:
-		  Device_Config();
-		  state = RUN;
-		  break;
-
-	  case RUN:
-		  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, SET);
-		  if(battery_detect < 200){
-			  state = IDLE;
-		  }
-		  break;
-	  default:
-	  }
-
-//	  sprintf(string_voltage, "%f", voltage);
-
-//	  sprintf(string_voltage, "%ld", volt);
-//	  ssd1306_SetCursor(10, 20);
-//	  ssd1306_WriteString(string_voltage, Font_7x10, Black);
-
-//	  sprintf(string_voltage, "%c",v);
-	  if(tick - prev_tick >= blink_delay){
-		  prev_tick = tick;
-		  voltage = LTC2944_Get_Voltage(&ltc2944_struct);
-		  current = LTC2944_Get_Current(&ltc2944_struct);
-
-		  sprintf(stringValue, "%ld", tick);
-		  ssd1306_SetCursor(10, 10);
-		  ssd1306_WriteString(stringValue, Font_7x10, Black);
-
-		  ssd1306_SetCursor(5, 20);
-		  ssd1306_WriteString("V=", Font_7x10, Black);
-		  sprintf(string_voltage, "%f", voltage);
-		  ssd1306_SetCursor(20, 20);
-		  ssd1306_WriteString(string_voltage, Font_7x10, Black);
-
-		  ssd1306_SetCursor(5, 30);
-		  ssd1306_WriteString("I=", Font_7x10, Black);
-		  sprintf(string_current, "%f", current);
-		  ssd1306_SetCursor(20, 30);
-		  ssd1306_WriteString(string_current, Font_7x10, Black);
-
-		  HAL_GPIO_TogglePin(LED_BLU_GPIO_Port, LED_BLU_Pin);
-		  ssd1306_UpdateScreen();
-		  ssd1306_Fill(White);
-	  }
+//	  if(tick - prev_tick >= blink_delay){
+//		  prev_tick = tick;
+//		  voltage = LTC2944_Get_Voltage(&ltc2944_struct);
+//		  current = LTC2944_Get_Current(&ltc2944_struct);
+//		  charge = LTC2944_Get_Charge(&ltc2944_struct);
+//		  temperature = LTC2944_Get_Temperature(&ltc2944_struct);
+//
+//		  sprintf(stringValue, "%ld", tick);
+//		  ssd1306_SetCursor(10, 10);
+//		  ssd1306_WriteString(stringValue, Font_7x10, Black);
+//
+//		  ssd1306_SetCursor(5, 20);
+//		  ssd1306_WriteString("V=", Font_7x10, Black);
+//		  sprintf(string_voltage, "%.3f", voltage);
+//		  ssd1306_SetCursor(20, 20);
+//		  ssd1306_WriteString(string_voltage, Font_7x10, Black);
+//
+//		  ssd1306_SetCursor(5, 30);
+//		  ssd1306_WriteString("I=", Font_7x10, Black);
+//		  sprintf(string_current, "%.3f", current);
+//		  ssd1306_SetCursor(20, 30);
+//		  ssd1306_WriteString(string_current, Font_7x10, Black);
+//
+//		  ssd1306_SetCursor(5,40);
+//		  ssd1306_WriteString("C=", Font_7x10, Black);
+//		  sprintf(string_charge, "%.0f", charge);
+//		  ssd1306_SetCursor(20, 40);
+//		  ssd1306_WriteString(string_charge, Font_7x10, Black);
+//
+//		  ssd1306_SetCursor(5,50);
+//		  ssd1306_WriteString("T=", Font_7x10, Black);
+//		  sprintf(string_temperature, "%.3f", temperature);
+//		  ssd1306_SetCursor(20, 50);
+//		  ssd1306_WriteString(string_temperature, Font_7x10, Black);
+//
+//		  HAL_GPIO_TogglePin(LED_BLU_GPIO_Port, LED_BLU_Pin);
+//		  ssd1306_UpdateScreen();
+//		  ssd1306_Fill(White);
+//	  }
 
 
+	  ssd1306_UpdateScreen();
+	  ssd1306_Fill(White);
+
+	HAL_I2C_Mem_Read(&hi2c2, LTC2944_ADDRESS, ACCUMULATED_CHARGE_MSB, 1, buf, 2, 1000);
+	voltage_ = buf[0] << 8 | buf[1];
   }
   /* USER CODE END 3 */
 }
@@ -279,37 +309,25 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void Device_Config(void){
 	ltc2944_struct.adc_mode = 			Automatic_Mode;
-	ltc2944_struct.prescalar_mode = 	Factor_256;
+//	ltc2944_struct.prescalar_factor = 	Factor_256;
 	ltc2944_struct.alcc_mode = 			ALCC_Disable;
-	ltc2944_struct.sense_resistor = 	0.0051;
+	ltc2944_struct.sense_resistor = 	5;
+	ltc2944_struct.batt_capacity =		3000;
 	ltc2944_struct.i2c_handle = 		hi2c2;
 
 	LTC2944_Init(ltc2944_struct);
 }
 
 
-//static uint8_t LTC2944_Write_Reg(ltc2944_configuration_t *ltc2944, uint8_t data, uint8_t mem_add){
-//	uint8_t status;
-//	uint8_t buf[1];
-//	buf[0] = data;
-////	HAL_I2C_Mem_Write(hi2c, DevAddress, MemAddress, MemAddSize, pData, Size, HAL_MAX_DELAY);
-//	status = HAL_I2C_Mem_Write(&(ltc2944->i2c_handle), LTC2944_ADDRESS, mem_add, 1, buf, 1, HAL_MAX_DELAY);
-//	return status;
+
+//uint16_t Get_Voltage(void){
+//
+//	HAL_I2C_Mem_Read(&hi2c2, LTC2944_ADDRESS, ACCUMULATED_CHARGE_MSB, 1, buf, 2, 1000);
+//	voltage_ = buf[0] << 8 | buf[1];
+//	return voltage_;
 //}
 
 
-
-
-
-
-
-
-uint16_t Get_Voltage(void){
-
-	HAL_I2C_Mem_Read(&hi2c2, LTC2944_ADDRESS, VOLTAGE_MSB, 1, buf, 2, 1000);
-	voltage_ = buf[0] << 8 | buf[1];
-	return voltage_;
-}
 
 
 

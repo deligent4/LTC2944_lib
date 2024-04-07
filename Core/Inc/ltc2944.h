@@ -51,7 +51,8 @@
 #define STATUS_UNDERVOLTAGE_LOCKOUT_ALERT_BIT 	0
 
 
-#define FACTOR_CHARGE_QLSB		(float)0.000340			// 0.340mAh when, Prescalar = 4096 and Rsns = 50mOhms
+#define FACTOR_CHARGE_QLSB		(float)0.340			// 0.340mAh when, Prescalar = 4096 and Rsns = 50mOhms
+
 /* Control Register (B) */
 /*
  *  Coulomb Counter ADC Mode
@@ -98,10 +99,11 @@ typedef enum
 typedef struct
 {
 	adc_mode_t 			adc_mode;			// This can be any value of enum adc_mode_t
-	prescaler_factor_t	prescalar_mode;		// This can be any value of enum prescalar_mode_t
 	alcc_mode_t			alcc_mode;			// This can be any value of enum alcc_mode_t
-	float				sense_resistor;		// Sense resistor value in ohms
+	float				sense_resistor;		// Sense resistor value in milli-ohms
+	float 				batt_capacity;		// Known battery capacity in mAhs
 	I2C_HandleTypeDef 	i2c_handle;			// Handle to I2C bus used
+
 }ltc2944_configuration_t;
 
 
@@ -119,7 +121,7 @@ typedef struct
 }ltc2944_data_t;
 
 
-void LTC2944_Init(ltc2944_configuration_t ltc2944);
+HAL_StatusTypeDef LTC2944_Init(ltc2944_configuration_t ltc2944);
 
 uint8_t LTC2944_Get_Battery_Data(ltc2944_configuration_t *ltc2944);
 
