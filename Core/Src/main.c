@@ -53,8 +53,11 @@
 
 /* USER CODE BEGIN PV */
 uint32_t tick, prev_tick = 0;
-uint16_t blink_delay = 1;
+uint16_t blink_delay = 100;
 ltc2944_configuration_t ltc2944_struct = {0};
+extern ltc2944_data_t ltc2944_data;
+//extern 	uint16_t prescaler_value;
+
 
 float voltage, current, charge, temperature;
 uint16_t volt;
@@ -78,7 +81,7 @@ char string_voltage[10], string_current[10], string_charge[10], string_temperatu
 
 uint16_t battery_detect = 0;
 bool is_ltc2944_config = false;
-float prescaler_value, psc_temp;
+//float prescaler_value, psc_temp;
 
 /* USER CODE END PV */
 
@@ -87,6 +90,9 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void Device_Config(void);
 uint16_t Get_Voltage(void);
+void myOLED_char(uint16_t cursorX, uint16_t cursorY, char* data);
+void myOLED_float(uint16_t cursorX, uint16_t cursorY, float data);
+void myOLED_int(uint16_t cursorX, uint16_t cursorY, uint16_t data);
 
 typedef enum
 {
@@ -149,34 +155,26 @@ int main(void)
   /* USER CODE BEGIN 2 */
   ssd1306_Init();
   HAL_ADC_Start(&hadc1);
-  state_t state = IDLE;
+//  state_t state = IDLE;
 
   Device_Config();
 
+  myOLED_char(1, 12, "Volt = ");
+  myOLED_char(1, 24, "Curr = ");
+  myOLED_char(1, 36, "Chg  = ");
+  myOLED_char(1, 48, "Temp = ");
+  ssd1306_UpdateScreen();
+  HAL_Delay(500);
+
+//  ssd1306_Fill(White);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-
 	  tick = HAL_GetTick();
-//	  printf(string_current);
-
-	  prescaler_value = LTC2944_Init(ltc2944_struct);
-
-	  sprintf(stringTick, "%ld", tick);
-	  ssd1306_SetCursor(0, 0);
-	  ssd1306_WriteString(stringTick, Font_7x10, Black);
-
-//	  sprintf(stringTest1, "%f", prescaler_value);
-//	  ssd1306_SetCursor(0, 15);
-//	  ssd1306_WriteString(stringTest1, Font_7x10, Black);
-//
-//	  sprintf(stringTest2, "%f", tick*0.302);
-//	  ssd1306_SetCursor(0, 30);
-//	  ssd1306_WriteString(stringTest2, Font_7x10, Black);
+	  myOLED_int(1, 2, tick);
 
     /* USER CODE END WHILE */
 
@@ -214,45 +212,27 @@ int main(void)
 
 	  if(tick - prev_tick >= blink_delay){
 		  prev_tick = tick;
-		  voltage = LTC2944_Get_Voltage(&ltc2944_struct);
+//		  voltage = LTC2944_Get_Voltage(&ltc2944_struct);
 		  current = LTC2944_Get_Current(&ltc2944_struct);
-		  charge = LTC2944_Get_Charge(&ltc2944_struct);
-		  temperature = LTC2944_Get_Temperature(&ltc2944_struct);
+//		  charge = LTC2944_Get_Charge(&ltc2944_struct);
+//		  temperature = LTC2944_Get_Temperature(&ltc2944_struct);
 
-		  ssd1306_SetCursor(5, 20);
-		  ssd1306_WriteString("V=", Font_7x10, Black);
-		  sprintf(string_voltage, "%.3f", voltage);
-		  ssd1306_SetCursor(20, 20);
-		  ssd1306_WriteString(string_voltage, Font_7x10, Black);
+		  myOLED_float(50, 12, ltc2944_data.voltage);
+		  myOLED_float(50, 24, ltc2944_data.current);
+		  myOLED_float(50, 36, ltc2944_data.acc_charge);
+		  myOLED_float(50, 48, ltc2944_data.temperature);
 
-		  ssd1306_SetCursor(5, 30);
-		  ssd1306_WriteString("I=", Font_7x10, Black);
-		  sprintf(string_current, "%.3f", current);
-		  ssd1306_SetCursor(20, 30);
-		  ssd1306_WriteString(string_current, Font_7x10, Black);
-
-		  ssd1306_SetCursor(5,40);
-		  ssd1306_WriteString("C=", Font_7x10, Black);
-		  sprintf(string_charge, "%.0f", charge);
-		  ssd1306_SetCursor(20, 40);
-		  ssd1306_WriteString(string_charge, Font_7x10, Black);
-
-		  ssd1306_SetCursor(5,50);
-		  ssd1306_WriteString("T=", Font_7x10, Black);
-		  sprintf(string_temperature, "%.3f", temperature);
-		  ssd1306_SetCursor(20, 50);
-		  ssd1306_WriteString(string_temperature, Font_7x10, Black);
 
 		  HAL_GPIO_TogglePin(LED_BLU_GPIO_Port, LED_BLU_Pin);
+
 		  ssd1306_UpdateScreen();
-		  ssd1306_Fill(White);
-//		  ssd1306_UpdateScreen();
 //		  ssd1306_Fill(White);
 	  }
 
 
-	  ssd1306_UpdateScreen();
-	  ssd1306_Fill(White);
+
+//	  ssd1306_UpdateScreen();
+//	  ssd1306_Fill(White);
 
 //	HAL_I2C_Mem_Read(&hi2c2, LTC2944_ADDRESS, ACCUMULATED_CHARGE_MSB, 1, buf, 2, 1000);
 //	voltage_ = buf[0] << 8 | buf[1];
@@ -317,6 +297,27 @@ void Device_Config(void){
 	LTC2944_Init(ltc2944_struct);
 }
 
+void myOLED_char(uint16_t cursorX, uint16_t cursorY, char* data){
+
+	ssd1306_SetCursor(cursorX, cursorY);
+	ssd1306_WriteString(data, Font_7x10, White);
+}
+
+void myOLED_float(uint16_t cursorX, uint16_t cursorY, float data){
+	char str_data[10];
+
+	sprintf(str_data, "%.3f", data);
+	ssd1306_SetCursor(cursorX, cursorY);
+	ssd1306_WriteString(str_data, Font_7x10, White);
+}
+
+void myOLED_int(uint16_t cursorX, uint16_t cursorY, uint16_t data){
+	char str_data[10];
+
+	sprintf(str_data, "%d", data);
+	ssd1306_SetCursor(cursorX, cursorY);
+	ssd1306_WriteString(str_data, Font_7x10, White);
+}
 
 
 //uint16_t Get_Voltage(void){

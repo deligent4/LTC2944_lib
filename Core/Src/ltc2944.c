@@ -11,6 +11,7 @@
 
 ltc2944_data_t ltc2944_data;
 uint16_t Prescaler_Table[] = {1, 4, 16, 64, 256, 1024, 4096};
+//uint16_t prescaler_value;
 
 HAL_StatusTypeDef LTC2944_Init(ltc2944_configuration_t ltc2944){
 	uint8_t ctrl_reg = 0;
@@ -48,7 +49,6 @@ HAL_StatusTypeDef LTC2944_Init(ltc2944_configuration_t ltc2944){
 	ctrl_reg |= (uint8_t)prescaler_value << 3;
 	ctrl_reg |= ltc2944.alcc_mode << 1;
 
-	//
 	status = HAL_I2C_Mem_Write(&(ltc2944.i2c_handle), LTC2944_ADDRESS,
 			CONTROL_REGISTER, 1, &ctrl_reg, 1, 10);
 
@@ -77,8 +77,6 @@ uint8_t LTC2944_Get_Battery_Data(ltc2944_configuration_t *ltc2944){
 
 		temp = (data_buffer[TEMPERATURE_MSB] << 8) | (data_buffer[TEMPERATURE_LSB]);
 		ltc2944_data.temperature = (501 * (temp / 65535)) - 273;
-
-
 	}
 	else{
 		ltc2944_data.acc_charge =	0;

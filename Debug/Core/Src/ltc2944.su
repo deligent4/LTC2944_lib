@@ -1,6 +1,6 @@
-../Core/Src/ltc2944.c:15:19:LTC2944_Init	48	static
+../Core/Src/ltc2944.c:16:19:LTC2944_Init	48	static
 ../Core/Src/ltc2944.c:59:9:LTC2944_Get_Battery_Data	72	static
-../Core/Src/ltc2944.c:95:7:LTC2944_Get_Voltage	24	static
-../Core/Src/ltc2944.c:105:7:LTC2944_Get_Current	24	static
-../Core/Src/ltc2944.c:116:7:LTC2944_Get_Temperature	24	static
-../Core/Src/ltc2944.c:126:7:LTC2944_Get_Charge	24	static
+../Core/Src/ltc2944.c:93:7:LTC2944_Get_Voltage	24	static
+../Core/Src/ltc2944.c:103:7:LTC2944_Get_Current	24	static
+../Core/Src/ltc2944.c:114:7:LTC2944_Get_Temperature	24	static
+../Core/Src/ltc2944.c:124:7:LTC2944_Get_Charge	24	static
