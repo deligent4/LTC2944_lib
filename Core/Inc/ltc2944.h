@@ -121,10 +121,10 @@ typedef struct
 }ltc2944_data_t;
 
 
-HAL_StatusTypeDef LTC2944_Init(ltc2944_configuration_t ltc2944);
+uint8_t LTC2944_Init(ltc2944_configuration_t ltc2944);
 
-uint8_t LTC2944_Get_Battery_Data(ltc2944_configuration_t *ltc2944);
 
+HAL_StatusTypeDef LTC2944_Get_Battery_Data(ltc2944_configuration_t *ltc2944);
 float LTC2944_Get_Voltage(ltc2944_configuration_t *ltc2944);
 
 float LTC2944_Get_Voltage(ltc2944_configuration_t *ltc2944);

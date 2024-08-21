@@ -1,5 +1,5 @@
-../Core/Src/ltc2944.c:16:19:LTC2944_Init	4
-../Core/Src/ltc2944.c:59:9:LTC2944_Get_Battery_Data	2
+../Core/Src/ltc2944.c:16:9:LTC2944_Init	4
+../Core/Src/ltc2944.c:59:19:LTC2944_Get_Battery_Data	2
 ../Core/Src/ltc2944.c:93:7:LTC2944_Get_Voltage	2
 ../Core/Src/ltc2944.c:103:7:LTC2944_Get_Current	2
 ../Core/Src/ltc2944.c:114:7:LTC2944_Get_Temperature	2

@@ -52,34 +52,29 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t tick, prev_tick = 0;
-uint16_t blink_delay = 100;
+uint32_t tick, prev_tick = 0, i2c_timeout = 10;
+uint16_t blink_delay = 10;
 ltc2944_configuration_t ltc2944_struct = {0};
 extern ltc2944_data_t ltc2944_data;
-//extern 	uint16_t prescaler_value;
-
 
 float voltage, current, charge, temperature;
 uint16_t volt;
 
-//ltc2944_data_t ltc2944_data;
-//float Prescaler_Table[] = {1.0, 4.0, 16.0, 64.0, 256.0, 1024.0, 4096.0};
-
-
-uint8_t buf[2];
+uint8_t buf[2], status;
 uint32_t voltage_;
-uint32_t temp = 3676;
+uint16_t temp;
 uint16_t qbat = 300, rsns = 5123;
+uint16_t sec_prev = 0, seconds = 0;
 //uint32_t temp;
 //uint8_t ctrl_reg[2];
 //float prescalar_value;
-uint8_t status;
+uint8_t state;
 
 char stringTick[10];  // Adjust the buffer size as needed
 char stringTest1[12], stringTest2[12];
 char string_voltage[10], string_current[10], string_charge[10], string_temperature[10];
 
-uint16_t battery_detect = 0;
+bool battery_detect = false;
 bool is_ltc2944_config = false;
 //float prescaler_value, psc_temp;
 
@@ -88,17 +83,20 @@ bool is_ltc2944_config = false;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void Device_Config(void);
+HAL_StatusTypeDef Device_Config(void);
 uint16_t Get_Voltage(void);
 void myOLED_char(uint16_t cursorX, uint16_t cursorY, char* data);
 void myOLED_float(uint16_t cursorX, uint16_t cursorY, float data);
 void myOLED_int(uint16_t cursorX, uint16_t cursorY, uint16_t data);
+void myOLED_int8(uint16_t cursorX, uint16_t cursorY, uint8_t data);
+void SCL_Reconfig();
 
 typedef enum
 {
 	IDLE 		= 0,
 	BATT_CONN	= 1,
-	RUN			= 3
+	RUN			= 2,
+	STUCK		= 3
 }state_t;
 
 #ifdef __GNUC__
@@ -125,6 +123,7 @@ PUTCHAR_PROTOTYPE
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -157,8 +156,9 @@ int main(void)
   HAL_ADC_Start(&hadc1);
 //  state_t state = IDLE;
 
-  Device_Config();
-
+//  while(Device_Config()){
+//  }
+  HAL_Delay(100);
   myOLED_char(1, 12, "Volt = ");
   myOLED_char(1, 24, "Curr = ");
   myOLED_char(1, 36, "Chg  = ");
@@ -175,68 +175,93 @@ int main(void)
   {
 	  tick = HAL_GetTick();
 	  myOLED_int(1, 2, tick);
-
+//	  LTC2944_Init(ltc2944_struct);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-//	  HAL_ADC_PollForConversion(&hadc1, 10);
-//  	  battery_detect = HAL_ADC_GetValue(&hadc1);
-//
-//	  switch(state){
-//	  case IDLE:
-//		  if(battery_detect >= 200){
-//			  state = BATT_CONN;
-//		  }else{
-//			  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, RESET);
-//			  voltage = 0.0;
-//			  current = 0.0;
-//		  }
-//		  break;
-//
-//	  case BATT_CONN:
-//		  Device_Config();
-//		  state = RUN;
-//		  break;
-//
-//	  case RUN:
-//		  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, SET);
-//		  if(battery_detect < 200){
-//			  state = IDLE;
-//		  }
-//		  break;
-//	  default:
-//	  }
-//
-//	  status = HAL_I2C_Mem_Read(&hi2c2, LTC2944_ADDRESS, VOLTAGE_MSB, 1, buf, 2, 1000);
+	  HAL_ADC_PollForConversion(&hadc1, 10);
+  	  if(HAL_ADC_GetValue(&hadc1) >= 200){
+  		  battery_detect = true;
+  	  }else if(HAL_ADC_GetValue(&hadc1) < 200){
+  		  battery_detect = false;
+  	  }
+
+	  switch(state){
+	  case IDLE:
+		  if(battery_detect){
+			  state = BATT_CONN;
+		  }else{
+			  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, RESET);
+			  myOLED_char(50, 24, "        ");	// print empty spaces in curr
+			  myOLED_char(50, 36, "       ");	// print empty spaces in chg
+			  myOLED_char(50, 48, "  ");		// print empty spaces in temp
+			  myOLED_int(50, 2, 0);
+			  // Resets the seconds count every time battery is removed
+			  if(seconds > 1){
+				  seconds = 0;
+			  }
+		  }
+		  break;
+
+	  case BATT_CONN:
+		  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, SET); 		// Turn on RED led for indication
+		  Device_Config();
+		  state = RUN;
+		  break;
+
+	  case RUN:
+		  /*
+		  * test timer for run condition
+		  */
+		  if(tick - sec_prev >= 1000){		// 1000ms = 1 sec
+			  sec_prev = tick;
+			  myOLED_int(50, 2, seconds++);
+		  }
+		  if(battery_detect){
+			  uint32_t tickstart = HAL_GetTick();
+			  status = LTC2944_Get_Battery_Data(&ltc2944_struct);
+			  if((HAL_GetTick() - tickstart) > i2c_timeout){
+				  state = STUCK;
+				  break;
+			  }
+			  // print the battery values on oled screen
+			  myOLED_float(50, 12, ltc2944_data.voltage);
+			  myOLED_float(50, 24, ltc2944_data.current);
+			  myOLED_int(50, 36, ltc2944_data.acc_charge);
+			  myOLED_int(50, 48, ltc2944_data.temperature);
+//			  if(status != HAL_OK){
+//				  state = STUCK;
+//				  break;
+//			  }
+		  }else{
+			  state = IDLE;
+		  }
+		  break;
+
+	  case STUCK:		// state to handle stuck LTC2944
+		  if(battery_detect){
+//			  HAL_I2C_DeInit(&hi2c2);
+//			  SCL_Reconfig();
+		  }else{
+			  state = IDLE;
+		  }
+
+		  break;
+
+	  default:
+	  }
 
 	  if(tick - prev_tick >= blink_delay){
 		  prev_tick = tick;
-//		  voltage = LTC2944_Get_Voltage(&ltc2944_struct);
-		  current = LTC2944_Get_Current(&ltc2944_struct);
-//		  charge = LTC2944_Get_Charge(&ltc2944_struct);
-//		  temperature = LTC2944_Get_Temperature(&ltc2944_struct);
-
-		  myOLED_float(50, 12, ltc2944_data.voltage);
-		  myOLED_float(50, 24, ltc2944_data.current);
-		  myOLED_float(50, 36, ltc2944_data.acc_charge);
-		  myOLED_float(50, 48, ltc2944_data.temperature);
-
-
 		  HAL_GPIO_TogglePin(LED_BLU_GPIO_Port, LED_BLU_Pin);
-
+		  myOLED_int(75, 48, state);
+		  myOLED_int(95, 48, status);
 		  ssd1306_UpdateScreen();
-//		  ssd1306_Fill(White);
 	  }
-
-
-
-//	  ssd1306_UpdateScreen();
-//	  ssd1306_Fill(White);
-
-//	HAL_I2C_Mem_Read(&hi2c2, LTC2944_ADDRESS, ACCUMULATED_CHARGE_MSB, 1, buf, 2, 1000);
-//	voltage_ = buf[0] << 8 | buf[1];
   }
+
+
   /* USER CODE END 3 */
 }
 
@@ -287,14 +312,14 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void Device_Config(void){
+HAL_StatusTypeDef Device_Config(void){
 	ltc2944_struct.adc_mode = 			Automatic_Mode;
 	ltc2944_struct.alcc_mode = 			ALCC_Disable;
 	ltc2944_struct.sense_resistor = 	5;
-	ltc2944_struct.batt_capacity =		3000;
+	ltc2944_struct.batt_capacity =		3500;
 	ltc2944_struct.i2c_handle = 		hi2c2;
 
-	LTC2944_Init(ltc2944_struct);
+	return LTC2944_Init(ltc2944_struct);
 }
 
 void myOLED_char(uint16_t cursorX, uint16_t cursorY, char* data){
@@ -314,11 +339,35 @@ void myOLED_float(uint16_t cursorX, uint16_t cursorY, float data){
 void myOLED_int(uint16_t cursorX, uint16_t cursorY, uint16_t data){
 	char str_data[10];
 
+	sprintf(str_data, "%u", data);
+	ssd1306_SetCursor(cursorX, cursorY);
+	ssd1306_WriteString(str_data, Font_7x10, White);
+}
+
+void myOLED_int8(uint16_t cursorX, uint16_t cursorY, uint8_t data){
+	char str_data[10];
+
 	sprintf(str_data, "%d", data);
 	ssd1306_SetCursor(cursorX, cursorY);
 	ssd1306_WriteString(str_data, Font_7x10, White);
 }
 
+void SCL_Reconfig(){
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+
+	/*Configure GPIO pins : PCPin PCPin PCPin */
+	GPIO_InitStruct.Pin = GPIO_PIN_10;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
 
 //uint16_t Get_Voltage(void){
 //
